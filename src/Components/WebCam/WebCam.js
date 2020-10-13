@@ -2,6 +2,9 @@ import React, { useEffect, useState, useRef } from 'react';
 import io from "socket.io-client";
 import Peer from "simple-peer";
 import styled from "styled-components";
+import * as ReactBootStrap from 'react-bootstrap';
+import { Button } from 'react-bootstrap';
+import './Webcam.css'
 
 const Container = styled.div`
   height: 100vh;
@@ -29,22 +32,27 @@ function WebCam() {
   const [caller, setCaller] = useState("");
   const [callerSignal, setCallerSignal] = useState();
   const [callAccepted, setCallAccepted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [hangupCall, setHangupCall] = useState(false)
+
 
   const userVideo = useRef();
   const partnerVideo = useRef();
   const socket = useRef();
 
   useEffect(() => {
-    socket= io();
+    socket.current = io.connect("http://192.168.43.231:5000");
+    console.log("server connected");
     navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
       setStream(stream);
       if (userVideo.current) {
         userVideo.current.srcObject = stream;
       }
-    })
+    });
+
 
     socket.current.on("yourID", (id) => {
-      setYourID(id);
+      setYourID(id);  
     })
     socket.current.on("allUsers", (users) => {
       setUsers(users);
@@ -54,28 +62,20 @@ function WebCam() {
       setReceivingCall(true);
       setCaller(data.from);
       setCallerSignal(data.signal);
+      setLoading(true)
+      setHangupCall(false)
     })
+    socket.current.on('disconnect', (users) => {
+      setHangupCall(users)
+    })
+
+
   }, []);
 
   function callPeer(id) {
     const peer = new Peer({
       initiator: true,
       trickle: false,
-      config: {
-
-        iceServers: [
-            {
-                urls: "stun:numb.viagenie.ca",
-                username: "sultan1640@gmail.com",
-                credential: "98376683"
-            },
-            {
-                urls: "turn:numb.viagenie.ca",
-                username: "sultan1640@gmail.com",
-                credential: "98376683"
-            }
-        ]
-    },
       stream: stream,
     });
 
@@ -100,7 +100,7 @@ function WebCam() {
     setCallAccepted(true);
     const peer = new Peer({
       initiator: false,
-      trickle: false,
+      trickle: true,
       stream: stream,
     });
     peer.on("signal", data => {
@@ -117,14 +117,37 @@ function WebCam() {
   let UserVideo;
   if (stream) {
     UserVideo = (
-      <Video playsInline muted ref={userVideo} autoPlay />
+      <Video style={{
+        zIndex: 2,
+        right: 0,
+        width: 385,
+        height: 500,
+        bottom: 5,
+        margin: 5,
+        background: 'black',
+      }} playsInline muted ref={userVideo} autoPlay
+      />
     );
+
   }
+
+
 
   let PartnerVideo;
   if (callAccepted) {
     PartnerVideo = (
-      <Video playsInline ref={partnerVideo} autoPlay />
+      <div>
+      <Video style={{
+        zIndex: 1,
+        bottom: 0,
+        minWidth: '100%',
+        minHeight: '100%',
+        background: 'black'
+      }} playsInline ref={partnerVideo} autoPlay
+      />
+      <button onClick={disconnectCall}>Hangup</button>
+      </div>
+      
     );
   }
 
@@ -137,12 +160,36 @@ function WebCam() {
       </div>
     )
   }
+
+  function disconnectCall() {
+    const peer = new Peer({
+      initiator: false,
+      trickle: false,
+      stream: false,
+    });
+    peer.on("stream", stream => {
+      partnerVideo.current.srcObject = null;
+    });
+
+
+  }
+
+  let deleteCall;
+  if (hangupCall) {
+    deleteCall = (
+      <div>
+        
+      </div>
+    )
+
+  }
+
+
+
   return (
     <Container>
-      <Row>
-        {UserVideo}
-        {PartnerVideo}
-      </Row>
+      {PartnerVideo}
+      {UserVideo}
       <Row>
         {Object.keys(users).map(key => {
           if (key === yourID) {
@@ -153,9 +200,20 @@ function WebCam() {
           );
         })}
       </Row>
-      <Row>
-        {incomingCall}
-      </Row>
+
+      {loading ? (incomingCall) : (<Button variant="primary" disabled>
+        <ReactBootStrap.Spinner
+          as="span"
+          animation="grow"
+          size="sm"
+          role="status"
+          aria-hidden="true"
+        />
+    Loading...
+      </Button>)}
+
+
+
     </Container>
   );
 }

@@ -13,7 +13,7 @@ const PieCard = props =>{
         <h4 className='card-title'> card title</h4>
         <p className="card-text text-secondary">sdfsffffffgddddddddddddddddddddddddddddddddddddddddd</p>
         
-        <a href="#" className="btn btn-outline-success"> Attendence</a>
+      
         </div>
         </div>
     )}
